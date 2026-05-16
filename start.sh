@@ -757,6 +757,7 @@ if [ "$DEV_MODE_ENABLED" = "true" ] && ! python3 -c "import jupyterlab" >/dev/nu
   echo "DEV_MODE enabled but jupyter-lab is missing; attempting runtime install..."
   if python3 -m pip install --user --no-cache-dir --break-system-packages "jupyterlab>=4.2,<5" "tornado>=6.3" "ipywidgets>=8.1"; then
     echo "Runtime Jupyter install complete."
+    python3 -c "from pathlib import Path; import shutil, jupyter_server; d=Path(jupyter_server.__file__).parent/'templates'; d.mkdir(parents=True,exist_ok=True); shutil.copyfile('/home/node/app/login.html', d/'login.html')" || true
   else
     echo "WARNING: Runtime Jupyter install failed; disabling terminal for this boot."
     RUNTIME_JUPYTER_ENABLED=false

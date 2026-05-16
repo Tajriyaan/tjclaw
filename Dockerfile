@@ -58,8 +58,8 @@ RUN if [ "${DEV_MODE}" = "true" ] || [ "${DEV_MODE}" = "1" ] || [ "${DEV_MODE}" 
         jupyterlab==4.5.7 \
         tornado==6.5.5 \
         ipywidgets==8.1.8 && \
-      # Prebuild frontend assets to speed up startup
-      python3 -c "from jupyterlab.labapp import build_lab_static" || true; \
+      # Copy login template into jupyter_server templates dir
+      python3 -c "from pathlib import Path; import shutil, jupyter_server; d=Path(jupyter_server.__file__).parent/'templates'; d.mkdir(parents=True,exist_ok=True); shutil.copyfile('/home/node/app/login.html', d/'login.html')" || true; \
     fi
 
 # Reuse existing node user (UID 1000). Allow passwordless package-manager
@@ -97,20 +97,7 @@ COPY --chown=1000:1000 wa-guardian.js /home/node/app/wa-guardian.js
 COPY --chown=1000:1000 cloudflare-keepalive-setup.py /home/node/app/cloudflare-keepalive-setup.py
 COPY --chown=1000:1000 openclaw-sync.py /home/node/app/openclaw-sync.py
 COPY --chown=1000:1000 multi-provider-key-rotator.cjs /home/node/app/multi-provider-key-rotator.cjs
-# Copy Jupyter login template only when DEV_MODE is enabled
-# This avoids import errors when JupyterLab is not installed
-RUN printf '%s\n' \
-  '#!/usr/bin/env bash' \
-  'set -u' \
-  'case "$(printf "%s" "${DEV_MODE}" | tr "[:upper:]" "[:lower:]")" in' \
-  '  true|1|yes|on)' \
-  "    python3 -c \"from pathlib import Path; import shutil, jupyter_server; template_dir = Path(jupyter_server.__file__).parent / 'templates'; template_dir.mkdir(parents=True, exist_ok=True); shutil.copyfile('/home/node/app/login.html', template_dir / 'login.html')\"" \
-  '    ;;' \
-  'esac' \
-  > /tmp/setup-jupyter-template.sh && \
-  chmod +x /tmp/setup-jupyter-template.sh && \
-  /tmp/setup-jupyter-template.sh || echo "Jupyter template setup skipped" ; \
-  rm -f /tmp/setup-jupyter-template.sh
+# login.html template is now copied inside the DEV_MODE install block above
 RUN chmod +x /home/node/app/start.sh \
               /home/node/app/cloudflare-proxy-setup.py \
               /home/node/app/cloudflare-keepalive-setup.py \
