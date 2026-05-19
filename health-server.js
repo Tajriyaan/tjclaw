@@ -22,11 +22,10 @@ const JUPYTER_HOST = "127.0.0.1";
 const JUPYTER_BASE = normalizeBase(process.env.JUPYTER_BASE, "/terminal");
 const GATEWAY_TOKEN = (process.env.GATEWAY_TOKEN || "").trim();
 const DEV_MODE_ENABLED = isTrue(process.env.DEV_MODE);
-// Auto-enable Jupyter when DEV_MODE=true, HUGGINGCLAW_JUPYTER_ENABLED=true, or GATEWAY_TOKEN is set.
-// GATEWAY_TOKEN doubles as JUPYTER_TOKEN in start.sh — no extra secret needed.
-const JUPYTER_ENABLED = /^(true|1|yes|on)$/i.test(
-  process.env.HUGGINGCLAW_JUPYTER_ENABLED || (DEV_MODE_ENABLED ? "true" : GATEWAY_TOKEN ? "true" : "false")
-);
+// Default true. Only false when DEV_MODE=false or HUGGINGCLAW_JUPYTER_ENABLED=false is explicitly set.
+const JUPYTER_ENABLED =
+  !/^(false|0|no|off)$/i.test(String(process.env.DEV_MODE || "").trim()) &&
+  !/^(false|0|no|off)$/i.test(String(process.env.HUGGINGCLAW_JUPYTER_ENABLED || "").trim());
 const startTime = Date.now();
 const LLM_MODEL = process.env.LLM_MODEL || "Not Set";
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;
@@ -238,6 +237,65 @@ function formatUptime(ms) {
 
 function escapeHtml(v) {
   return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function parseCookies(req) {
+  const h = req.headers.cookie || "";
+  return Object.fromEntries(h.split(";").map(c => c.trim().split("=")).filter(p => p.length >= 2).map(([k, ...v]) => [k.trim(), decodeURIComponent(v.join("=").trim())]));
+}
+
+// Constant-time comparison — prevent timing attacks on token check
+function safeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+function isEnvBuilderAuthed(req) {
+  if (!GATEWAY_TOKEN) return true; // unprotected when no token set
+  return safeEqual(parseCookies(req).hc_env_auth || "", GATEWAY_TOKEN);
+}
+
+function readBody(req) {
+  return new Promise((resolve) => {
+    let body = "";
+    req.on("data", chunk => { body += chunk; if (body.length > 4096) { body = ""; req.destroy(); } });
+    req.on("end", () => resolve(body));
+    req.on("error", () => resolve(""));
+  });
+}
+
+function renderEnvBuilderLogin(error = false) {
+  return `<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>HuggingClaw — Env Builder</title>
+  <style>
+    :root{color-scheme:dark;--bg:#08080f;--panel:#12111b;--line:#26243a;--text:#f6f4ff;--muted:#7f7a9e;--bad:#fb7185}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);padding:24px}
+    .card{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:36px 32px;max-width:400px;width:100%;text-align:center}
+    h1{margin:0 0 8px;font-size:1.4rem}
+    .sub{color:var(--muted);font-size:.82rem;margin:0 0 24px}
+    .row{display:flex;gap:8px;margin-top:16px}
+    input{flex:1;background:#0d0c18;border:1px solid var(--line);border-radius:7px;padding:10px 12px;color:var(--text);font-size:.95rem;outline:none}
+    input:focus{border-color:#6366f1}
+    button{background:#fff;color:#000;border:none;border-radius:7px;padding:10px 20px;font-weight:700;font-size:.95rem;cursor:pointer;transition:opacity .15s}
+    button:hover{opacity:.85}
+    .err{color:var(--bad);font-size:.82rem;margin-top:10px}
+    code{background:#232234;border:1px solid #34324c;border-radius:5px;padding:2px 6px;font-size:.88em}
+  </style></head><body>
+  <div class="card">
+    <h1>⚙️ Env Builder</h1>
+    <p class="sub">Enter your <code>GATEWAY_TOKEN</code> to continue</p>
+    <form method="post" action="/env-builder/login">
+      <div class="row">
+        <input type="password" name="token" placeholder="GATEWAY_TOKEN" autofocus autocomplete="current-password">
+        <button type="submit">Unlock</button>
+      </div>
+      ${error ? '<p class="err">Invalid token — try again</p>' : ""}
+    </form>
+  </div>
+</body></html>`;
 }
 
 function badge(label, tone = "neutral") {
@@ -599,16 +657,45 @@ const server = http.createServer(async (req, res) => {
     !isSameOriginNav &&
     !isFromHFApp;
 
+  if (pathname === "/env-builder/login") {
+    if (req.method === "POST") {
+      const body = await readBody(req);
+      const token = decodeURIComponent((body.match(/(?:^|&)token=([^&]*)/) || [])[1] || "").replace(/\+/g, " ");
+      if (safeEqual(token, GATEWAY_TOKEN)) {
+        const cookie = `hc_env_auth=${encodeURIComponent(GATEWAY_TOKEN)}; Path=/env-builder; HttpOnly; SameSite=Strict; Max-Age=86400`;
+        res.writeHead(302, { Location: "/env-builder", "Set-Cookie": cookie, "Cache-Control": "no-store" });
+        return res.end();
+      }
+      res.writeHead(200, { "Content-Type": "text/html" });
+      return res.end(renderEnvBuilderLogin(true));
+    }
+    res.writeHead(302, { Location: "/env-builder", "Cache-Control": "no-store" });
+    return res.end();
+  }
+
+  if (pathname === "/env-builder/logout") {
+    res.writeHead(302, { Location: "/env-builder", "Set-Cookie": "hc_env_auth=; Path=/env-builder; HttpOnly; Max-Age=0", "Cache-Control": "no-store" });
+    return res.end();
+  }
+
   if (pathname === "/env-builder" || pathname === "/env-builder/") {
     if (isDirectHfSpaceRequest) {
       res.writeHead(200, { "Content-Type": "text/html" });
       return res.end(renderPrivateRedirect(HF_SPACE_URL));
+    }
+    if (!isEnvBuilderAuthed(req)) {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      return res.end(renderEnvBuilderLogin(false));
     }
     res.writeHead(200, { "Content-Type": "text/html" });
     return res.end(renderEnvBuilder());
   }
 
   if (pathname === "/env-builder.js") {
+    if (!isEnvBuilderAuthed(req)) {
+      res.writeHead(401, { "Content-Type": "text/plain" });
+      return res.end("Unauthorized");
+    }
     try {
       const js = fs.readFileSync(require("path").join(__dirname, "env-builder.js"), "utf8");
       res.writeHead(200, { "Content-Type": "application/javascript" });
@@ -637,7 +724,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === JUPYTER_BASE || pathname.startsWith(JUPYTER_BASE + "/")) {
     if (!JUPYTER_ENABLED) {
       res.writeHead(404, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify({ status: "disabled", message: "JupyterLab terminal is disabled. Set GATEWAY_TOKEN or DEV_MODE=true to enable /terminal/ (or set HUGGINGCLAW_JUPYTER_ENABLED=true)." }));
+      return res.end(JSON.stringify({ status: "disabled", message: "JupyterLab terminal is disabled. Remove DEV_MODE=false to re-enable." }));
     }
     if (isDirectHfSpaceRequest) {
       res.writeHead(200, { "Content-Type": "text/html" });

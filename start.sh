@@ -97,7 +97,7 @@ fi
 # GATEWAY_TOKEN doubles as JUPYTER_TOKEN (see start_jupyter_once) — no extra secret required.
 if [ "$DEV_MODE_ENABLED" != "true" ] && [ -z "${DEV_MODE:-}" ] && [ -n "${GATEWAY_TOKEN:-}" ]; then
   DEV_MODE_ENABLED=true
-  echo "GATEWAY_TOKEN set and DEV_MODE not explicitly configured — auto-enabling terminal (set DEV_MODE=false to opt out)"
+  : # auto-enable is silent; set DEV_MODE=false to opt out
 fi
 SYNC_INTERVAL="$(trim_var "${SYNC_INTERVAL:-180}")"
 DEVDATA_DATASET_NAME="$(trim_var "${DEVDATA_DATASET_NAME:-huggingclaw-devdata}")"
@@ -875,12 +875,12 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Runtime install fallback: only attempt if DEV_MODE is enabled but install failed during build
 if [ "$DEV_MODE_ENABLED" = "true" ] && ! python3 -c "import jupyterlab" >/dev/null 2>&1; then
-  echo "DEV_MODE enabled but jupyter-lab is missing; attempting runtime install..."
-  if python3 -m pip install --user --no-cache-dir --break-system-packages "jupyterlab>=4.2,<5" "tornado>=6.3" "ipywidgets>=8.1"; then
-    echo "Runtime Jupyter install complete."
+  echo "Terminal  : installing JupyterLab..."
+  if python3 -m pip install -q --user --no-cache-dir --break-system-packages "jupyterlab>=4.2,<5" "tornado>=6.3" "ipywidgets>=8.1" >/dev/null 2>&1; then
+    echo "Terminal  : installed"
     python3 -c "from pathlib import Path; import shutil, jupyter_server; d=Path(jupyter_server.__file__).parent/'templates'; d.mkdir(parents=True,exist_ok=True); shutil.copyfile('/home/node/app/login.html', d/'login.html')" || true
   else
-    echo "WARNING: Runtime Jupyter install failed; disabling terminal for this boot."
+    echo "Terminal  : install failed — disabling for this boot"
     RUNTIME_JUPYTER_ENABLED=false
   fi
 fi
@@ -896,7 +896,6 @@ if [ -n "${SPACE_HOST:-}" ]; then
   else
     echo "Routes    : /app/ (Control UI)"
   fi
-  echo "Private   : open the Hugging Face App tab first; raw https://${SPACE_HOST}/... links can show HF 404 without the embedded Space session."
 fi
 echo ""
 
@@ -984,7 +983,6 @@ start_jupyter_once() {
   # reuse GATEWAY_TOKEN. Both protect the same Space, so the credential is equivalent.
   if { [ -z "${JUPYTER_TOKEN:-}" ] || [ "${JUPYTER_TOKEN}" = "huggingface" ]; } && [ -n "${GATEWAY_TOKEN:-}" ]; then
     JUPYTER_TOKEN="$GATEWAY_TOKEN"
-    echo "JUPYTER_TOKEN not set — using GATEWAY_TOKEN as terminal auth token"
   fi
 
   # Security guard: refuse to start JupyterLab with the insecure default token.
@@ -1017,7 +1015,7 @@ start_jupyter_once() {
   # Pre-create runtime directory
   mkdir -p "$JUPYTER_ROOT_DIR/.jupyter"
 
-  echo "DEV_MODE enabled (${DEV_MODE_RAW}) — starting JupyterLab terminal on internal port 8888 (path: /terminal/) with root: $JUPYTER_ROOT_DIR"
+  echo "Terminal  : starting (root: $JUPYTER_ROOT_DIR)"
   JUPYTER_LOG_FILE="/tmp/jupyterlab.log"
   
   # Use explicit Python to avoid PATH issues; set memory-friendly limits
@@ -1043,7 +1041,7 @@ start_jupyter_once() {
       >> "$JUPYTER_LOG_FILE" 2>&1 &
   JUPYTER_PID=$!
   export JUPYTER_PID
-  echo "JupyterLab started (PID: $JUPYTER_PID)"
+  echo "Terminal  : started (PID: $JUPYTER_PID)"
 }
 
 # BUG FIX #3: DevData restore must happen BEFORE JupyterLab starts.
@@ -1056,9 +1054,9 @@ if [ "$RUNTIME_JUPYTER_ENABLED" = "true" ] && \
    [ -n "${HF_TOKEN:-}" ] && \
    [ -f "/home/node/app/jupyter-devdata-sync.py" ] && \
    [ "${DEVDATA_DATASET_NAME:-huggingclaw-devdata}" != "${BACKUP_DATASET_NAME:-huggingclaw-backup}" ]; then
-  echo "DevData  : restoring workspace from ${DEVDATA_DATASET_NAME:-huggingclaw-devdata} (before JupyterLab starts)..."
-  python3 /home/node/app/jupyter-devdata-sync.py --restore || \
-    echo "DevData  : restore warning (non-fatal); continuing startup."
+  echo "DevData   : restoring workspace..."
+  python3 /home/node/app/jupyter-devdata-sync.py --restore 2>/dev/null || \
+    echo "DevData   : restore warning (non-fatal); continuing startup."
 fi
 
 # Fix: reinstall jsonschema AFTER devdata restore — restore can overwrite a broken
@@ -1066,9 +1064,7 @@ fi
 # JupyterLab to crash with a circular import error on every boot.
 if [ "$DEV_MODE_ENABLED" = "true" ]; then
   if ! python3 -c "import jsonschema" >/dev/null 2>&1; then
-    echo "DevData  : jsonschema broken after restore — reinstalling (circular import fix)..."
-    python3 -m pip install --force-reinstall --no-cache-dir --break-system-packages "jsonschema>=4.0" >/dev/null 2>&1 || true
-    echo "DevData  : jsonschema reinstall done."
+    python3 -m pip install -q --force-reinstall --no-cache-dir --break-system-packages "jsonschema>=4.0" >/dev/null 2>&1 || true
   fi
 fi
 
@@ -1076,8 +1072,6 @@ fi
 # Accessible via /terminal/ path through the health-server proxy
 if [ "$RUNTIME_JUPYTER_ENABLED" = "true" ]; then
   start_jupyter_once
-else
-  echo "Jupyter terminal disabled for this boot (DEV_MODE=${DEV_MODE_RAW})."
 fi
 
 if [ -n "${CLOUDFLARE_WORKERS_TOKEN:-}" ]; then

@@ -15,7 +15,9 @@ FROM ghcr.io/openclaw/openclaw:${OPENCLAW_VERSION} AS openclaw
 FROM node:22-slim
 ARG OPENCLAW_VERSION=latest
 ARG DEV_MODE=false
-ENV DEV_MODE=${DEV_MODE}
+# DEV_MODE intentionally not baked into runtime ENV — defaults to unset so
+# start.sh can auto-enable terminal when GATEWAY_TOKEN is present. Users can
+# override by setting DEV_MODE=false as an HF Space Variable to opt out.
 
 # Install system dependencies (+ optional JupyterLab deps in DEV_MODE)
 RUN apt-get update && apt-get install -y \

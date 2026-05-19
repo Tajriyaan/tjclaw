@@ -853,11 +853,11 @@ const FIELDS = [
     "k": "JUPYTER_TOKEN",
     "lbl": "Jupyter access token (Must NOT be 'huggingface'. Run: openssl rand -hex 32)",
     "type": "password",
-    "ph": "change_this_to_a_strong_token",
-    "common": 1,
-    "tag": "credential"
+    "secret": 1,
+    "ph": "huggingface",
+    "common": 1
   },
-{
+  {
     "g": "Core",
     "icon": "⚡",
     "k": "OPENCLAW_DISABLE_BONJOUR",
@@ -965,7 +965,7 @@ const FIELDS = [
     "ph": "/home/node",
     "tag": "advanced"
   },
-{
+  {
     "g": "Provider Keys",
     "icon": "🔑",
     "k": "ANTHROPIC_API_KEY",
