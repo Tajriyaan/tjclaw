@@ -1438,7 +1438,9 @@ if [ -n "${HUGGINGCLAW_OPENCLAW_PLUGINS:-}" ]; then
 fi
 
 # ── Fix config before running startup commands ──
-openclaw doctor --fix || true
+if [ "${AUTO_DOCTOR:-false}" = "true" ]; then
+  openclaw doctor --fix || true
+fi
 
 # ── Arbitrary startup commands from HF Variables/Secrets ──
 # Recommended: use one variable, HUGGINGCLAW_RUN, as a full bash script. If the
@@ -1581,7 +1583,9 @@ while true; do
     fi
   fi
 
-  openclaw doctor --fix || true
+  if [ "${AUTO_DOCTOR:-false}" = "true" ]; then
+    openclaw doctor --fix || true
+  fi
   echo "Launching OpenClaw gateway on port 7860..."
 
   GATEWAY_ARGS=(gateway run --port 7860 --bind lan)
@@ -1618,9 +1622,14 @@ while true; do
     echo "Gateway failed to start. Last 30 lines of log:"
     echo "────────────────────────────────────────────"
     tail -30 /home/node/.openclaw/gateway.log
-    echo "Gateway failed — JupyterLab and env-builder still running. Retrying in 10s..."
-    sleep 10
-    continue
+    if [ "$DEV_MODE_ENABLED" = "true" ]; then
+      echo "Gateway failed — DEV_MODE active, retrying in 10s..."
+      sleep 10
+      continue
+    else
+      echo "Gateway failed — exiting."
+      exit 1
+    fi
   fi
 
   # 11. Start WhatsApp Guardian after the gateway is accepting connections
