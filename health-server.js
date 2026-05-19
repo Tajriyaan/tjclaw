@@ -704,6 +704,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === "/env-builder.js") {
+    if (!isEnvBuilderAuthed(req)) {
+      res.writeHead(401, { "Content-Type": "text/plain" });
+      return res.end("Unauthorized");
+    }
     try {
       const js = fs.readFileSync(require("path").join(__dirname, "env-builder.js"), "utf8");
       res.writeHead(200, { "Content-Type": "application/javascript", "Cache-Control": "no-store" });
@@ -732,7 +736,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === JUPYTER_BASE || pathname.startsWith(JUPYTER_BASE + "/")) {
     if (!JUPYTER_ENABLED) {
       res.writeHead(404, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify({ status: "disabled", message: "JupyterLab terminal is disabled. Set GATEWAY_TOKEN or DEV_MODE=true to enable /terminal/ (or set HUGGINGCLAW_JUPYTER_ENABLED=true)." }));
+      return res.end(JSON.stringify({ status: "disabled", message: "JupyterLab terminal is disabled. Remove DEV_MODE=false to re-enable." }));
     }
     if (isDirectHfSpaceRequest) {
       res.writeHead(200, { "Content-Type": "text/html" });
