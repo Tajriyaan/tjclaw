@@ -1756,14 +1756,6 @@ const FIELDS = [
 {
     "g": "Telegram",
     "icon": "✈️",
-    "k": "TELEGRAM_USER_ID",
-    "lbl": "Single Telegram user ID",
-    "type": "text",
-    "tag": "optional"
-  },
-{
-    "g": "Telegram",
-    "icon": "✈️",
     "k": "TELEGRAM_USER_IDS",
     "lbl": "Telegram user IDs (comma)",
     "type": "text",
@@ -1777,15 +1769,6 @@ const FIELDS = [
     "type": "text",
     "ph": "/app",
     "tag": "advanced"
-  },
-{
-    "g": "Deployment",
-    "icon": "🧭",
-    "k": "BACKUP_DATASET",
-    "lbl": "Backup dataset alias",
-    "type": "text",
-    "ph": "huggingclaw-backup",
-    "tag": "optional"
   },
 {
     "g": "Deployment",
