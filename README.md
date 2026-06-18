@@ -88,7 +88,7 @@ Watch a quick walkthrough on YouTube: [Deploying HuggingClaw on HF Spaces](https
 
 ### Step 1: Duplicate this Space
 
-[![Duplicate this Space](https://huggingface.co/datasets/huggingface/badges/resolve/main/duplicate-this-space-xl.svg)](https://huggingface.co/spaces/Tajriyaan/tjclaw?duplicate=true)
+[![Duplicate this Space](https://huggingface.co/datasets/huggingface/badges/resolve/main/duplicate-this-space-xl.svg)](https://huggingface.co/spaces/chowdhurytajriyaan97/tjclaw?duplicate=true)
 
 Click the button above to duplicate the template.
 
