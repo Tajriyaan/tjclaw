@@ -77,7 +77,12 @@ if (PROXY_URL) {
         normalized === proxy.hostname ||
         normalized.endsWith(".hf.space") ||
         normalized.endsWith(".huggingface.co") ||
-        normalized === "huggingface.co";
+        normalized === "huggingface.co" ||
+        // FIX: never proxy private/RFC-1918 addresses
+        /^10\./.test(normalized) ||
+        /^172\.(1[6-9]|2[0-9]|3[01])\./.test(normalized) ||
+        /^192\.168\./.test(normalized) ||
+        /^169\.254\./.test(normalized);
 
       const should = PROXY_ALL ? !isInternal : BLOCKED_DOMAINS.some(
         (domain) =>

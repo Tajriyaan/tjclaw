@@ -34,7 +34,7 @@ secrets:
 ---
 
 <!-- Badges -->
-[![GitHub Stars](https://img.shields.io/github/stars/somratpro/huggingclaw?style=flat-square)](https://github.com/somratpro/huggingclaw)
+[![GitHub Stars](https://img.shields.io/github/stars/Tajriyaan/tjclaw?style=flat-square)](https://github.com/Tajriyaan/tjclaw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![HF Space](https://img.shields.io/badge/🤗%20HuggingFace-Space-blue?style=flat-square)](https://huggingface.co/spaces)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Gateway-red?style=flat-square)](https://github.com/openclaw/openclaw)
@@ -88,7 +88,7 @@ Watch a quick walkthrough on YouTube: [Deploying HuggingClaw on HF Spaces](https
 
 ### Step 1: Duplicate this Space
 
-[![Duplicate this Space](https://huggingface.co/datasets/huggingface/badges/resolve/main/duplicate-this-space-xl.svg)](https://huggingface.co/spaces/somratpro/HuggingClaw?duplicate=true)
+[![Duplicate this Space](https://huggingface.co/datasets/huggingface/badges/resolve/main/duplicate-this-space-xl.svg)](https://huggingface.co/spaces/Tajriyaan/tjclaw?duplicate=true)
 
 Click the button above to duplicate the template.
 
@@ -330,7 +330,7 @@ LLM_MODEL=modal/zai-org/GLM-5.1-FP8
 ## 💻 Local Development
 
 ```bash
-git clone https://github.com/somratpro/huggingclaw.git
+git clone https://github.com/Tajriyaan/tjclaw.git
 cd huggingclaw
 cp .env.example .env
 # Edit .env with your secret values
@@ -454,4 +454,4 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 MIT — see [LICENSE](LICENSE) for details.
 
-*Made with ❤️ by [@somratpro](https://github.com/somratpro) for the OpenClaw community.*
+*Fork maintained by [@Tajriyaan](https://github.com/Tajriyaan) — source: [tjclaw](https://github.com/Tajriyaan/tjclaw). Original by [@somratpro](https://github.com/somratpro).*

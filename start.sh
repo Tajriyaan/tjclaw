@@ -1,5 +1,8 @@
 #!/bin/bash
-set -euo pipefail
+set -eo pipefail
+# Note: -u (nounset) intentionally omitted — HF Spaces injects env vars that
+# may be unset early in boot, causing spurious "unbound variable" exits.
+# Individual critical sections add -u locally where needed.
 
 umask 0077
 
@@ -178,6 +181,17 @@ if [[ "$LLM_MODEL" == "anthropic/gemini"* ]]; then
   echo "Note: corrected model from anthropic/gemini* to google/gemini*"
 fi
 
+# FIX: openrouter/nvidia/model-name has 3 segments; strip the 'openrouter/' prefix so
+# OpenClaw sees nvidia/model-name and OPENROUTER_API_KEY is set correctly.
+if [[ "$LLM_MODEL" == openrouter/* ]]; then
+  _or_rest="${LLM_MODEL#openrouter/}"
+  if [[ "$_or_rest" == */* ]]; then
+    echo "Note: auto-stripping 'openrouter/' prefix ('$LLM_MODEL' → '$_or_rest'). Tip: set LLM_MODEL=$_or_rest + LLM_PROVIDER=openrouter to avoid this."
+    LLM_MODEL="$_or_rest"
+    export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-$LLM_API_KEY}"
+  fi
+fi
+
 # Extract provider prefix from model name (e.g. "google/gemini-2.5-flash" → "google")
 LLM_PROVIDER=$(echo "$LLM_MODEL" | cut -d'/' -f1)
 
@@ -333,6 +347,11 @@ if [ -n "${CLOUDFLARE_WORKERS_TOKEN:-}" ] || [ -n "${CLOUDFLARE_PROXY_URL:-}" ];
   python3 /home/node/app/cloudflare-proxy-setup.py || true
   if [ -f "$CF_PROXY_ENV_FILE" ]; then
     . "$CF_PROXY_ENV_FILE"
+    # FIX: re-export so child processes (openclaw, health-server) inherit updated values
+    export CLOUDFLARE_PROXY_URL="${CLOUDFLARE_PROXY_URL:-}"
+    export CLOUDFLARE_PROXY_SECRET="${CLOUDFLARE_PROXY_SECRET:-}"
+    # Re-trim in case setup script wrote trailing whitespace
+    CLOUDFLARE_PROXY_URL="$(printf '%s' "$CLOUDFLARE_PROXY_URL" | sed 's/[[:space:]]*$//')"
   fi
 fi
 
@@ -686,8 +705,9 @@ CONFIG_JSON=$(jq \
    | (if $spaceHost != "" then
         .gateway.controlUi.allowedOrigins = ["https://" + $spaceHost]
       else . end)
-   | (if ($password != "" and (.gateway.auth.token // "") == "") then
+   | (if $password != "" then
         .gateway.auth.mode = "password" | .gateway.auth.password = $password
+        | .gateway.auth.token = ""
       else . end)' <<<"$CONFIG_JSON")
 
 # Trusted proxies (optional — fixes "Proxy headers detected from untrusted address" on HF Spaces)
@@ -956,7 +976,7 @@ warmup_browser() {
   BROWSER_WARMED_UP=true
 
   (
-    sleep 8
+    sleep 3
 
     local attempt
     for attempt in 1 2 3 4 5 6; do
@@ -1100,7 +1120,7 @@ if [ "$RUNTIME_JUPYTER_ENABLED" = "true" ]; then
   start_jupyter_once
 fi
 
-if [ -n "${CLOUDFLARE_WORKERS_TOKEN:-}" ]; then
+if [ -n "${CLOUDFLARE_WORKERS_TOKEN:-}" ] || [ -n "${CLOUDFLARE_PROXY_URL:-}" ]; then
   echo "Setting up Cloudflare KeepAlive monitor..."
   python3 /home/node/app/cloudflare-keepalive-setup.py || true
 fi
@@ -1756,7 +1776,9 @@ while true; do
   # Poll for the gateway to start listening on ${GATEWAY_PORT}. OpenClaw can take 20-30s
   # on cold start (plugin install + auto-restore). Bail out early if the
   # pipeline died.
-  GATEWAY_READY_TIMEOUT="${GATEWAY_READY_TIMEOUT:-90}"
+  # HF Spaces cold boots are slow; 150 s gives the gateway enough time.
+  # Override by setting GATEWAY_READY_TIMEOUT as an HF Space Variable.
+  GATEWAY_READY_TIMEOUT="${GATEWAY_READY_TIMEOUT:-150}"
   ready=false
   for ((i=0; i<GATEWAY_READY_TIMEOUT; i++)); do
     if (echo > /dev/tcp/127.0.0.1/${GATEWAY_PORT}) 2>/dev/null; then
@@ -1779,7 +1801,15 @@ while true; do
       sleep 10
       continue
     else
-      echo "Gateway failed — exiting."
+      # On HF Spaces a transient cold-boot failure is common; retry once
+      # before giving up so the Space doesn't require a manual restart.
+      if [ "${_HC_GATEWAY_RETRIED:-0}" = "0" ]; then
+        export _HC_GATEWAY_RETRIED=1
+        echo "Gateway failed on first attempt — retrying in 15s..."
+        sleep 15
+        continue
+      fi
+      echo "Gateway failed on retry — exiting."
       exit 1
     fi
   fi

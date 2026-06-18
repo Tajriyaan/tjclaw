@@ -20,6 +20,7 @@ ARG DEV_MODE=false
 # override by setting DEV_MODE=false as an HF Space Variable to opt out.
 
 # Install system dependencies (+ optional JupyterLab deps in DEV_MODE)
+# Layer 1: base tools (cached aggressively — changes rarely)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     sudo \
@@ -31,6 +32,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus-x11 \
     python3 \
     python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Layer 2: Python packages (separate so apt changes don't bust pip cache)
+RUN pip3 install --no-cache-dir --break-system-packages huggingface_hub hf_transfer
+
+# Layer 3: Chromium + X11/font deps (large, kept in its own layer)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     libnss3 \
     libatk1.0-0 \
@@ -52,9 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-ipafont-gothic \
     fonts-wqy-zenhei \
     xfonts-scalable \
-    --no-install-recommends && \
-    pip3 install --no-cache-dir --break-system-packages huggingface_hub hf_transfer && \
-    rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Install JupyterLab only when DEV_MODE is enabled (build-time)
 # This avoids installing large packages when terminal is not needed
@@ -119,14 +125,16 @@ ENV HOME=/home/node \
     OPENCLAW_VERSION=${OPENCLAW_VERSION} \
     PATH=/home/node/.local/bin:/usr/local/bin:$PATH \
     NODE_PATH=/home/node/browser-deps/node_modules \
-    NODE_OPTIONS="--require /opt/cloudflare-proxy.js"
+    # Cap Node.js heap at 1.5 GB — leaves headroom for Chromium + Python on
+    # free-tier HF Spaces (2 GB RAM). Raise via NODE_OPTIONS HF Space Variable.
+    NODE_OPTIONS="--max-old-space-size=1536 --require /opt/cloudflare-proxy.js"
 
 WORKDIR /home/node/app
 
 # 7861 = public entrypoint (dashboard + proxy for both OpenClaw and JupyterLab)
 EXPOSE 7861
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=90s \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=150s \
   CMD curl -fsS http://localhost:7861/health || exit 1
 
 CMD ["/home/node/app/start.sh"]

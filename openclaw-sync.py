@@ -41,7 +41,7 @@ WORKSPACE = OPENCLAW_HOME / "workspace"
 STATUS_FILE = Path("/tmp/sync-status.json")
 SYNC_LOCK_FILE = Path("/tmp/huggingclaw-sync.lock")
 INTERVAL = int(os.environ.get("SYNC_INTERVAL", "180"))
-INITIAL_DELAY = int(os.environ.get("SYNC_START_DELAY", "10"))
+INITIAL_DELAY = int(os.environ.get("SYNC_START_DELAY", "30"))  # FIX: was 10s — too short for HF cold boots
 CONFIG_WATCH_INTERVAL = max(
     0.5,
     float(os.environ.get("OPENCLAW_CONFIG_WATCH_INTERVAL", "1")),
@@ -470,6 +470,8 @@ def restore_workspace() -> bool:
                 write_status("fresh", "Backup dataset is empty. Starting fresh.")
                 return True
 
+            # FIX: clear workspace AFTER download succeeds (was before).
+            # Clearing before download meant a failed download left workspace empty.
             WORKSPACE.mkdir(parents=True, exist_ok=True)
             for child in list(WORKSPACE.iterdir()):
                 if child.name == ".git":
@@ -530,23 +532,35 @@ def _sync_once_unlocked(
     write_status("syncing", f"Uploading workspace to {repo_id}")
     snapshot_dir = create_snapshot_dir(WORKSPACE)
     try:
-        try:
-            HF_API.upload_large_folder(
-                repo_id=repo_id,
-                repo_type="dataset",
-                folder_path=str(snapshot_dir),
-                num_workers=2,
-                print_report=False,
-            )
-        except AttributeError:
-            upload_folder(
-                folder_path=str(snapshot_dir),
-                repo_id=repo_id,
-                repo_type="dataset",
-                token=HF_TOKEN,
-                commit_message=f"HuggingClaw sync {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
-                ignore_patterns=[".git/*", ".git"],
-            )
+        # FIX: retry on transient HF hub upload errors (503, network blips).
+        _upload_attempts = 0
+        while True:
+            _upload_attempts += 1
+            try:
+                try:
+                    HF_API.upload_large_folder(
+                        repo_id=repo_id,
+                        repo_type="dataset",
+                        folder_path=str(snapshot_dir),
+                        num_workers=2,
+                        print_report=False,
+                    )
+                except AttributeError:
+                    upload_folder(
+                        folder_path=str(snapshot_dir),
+                        repo_id=repo_id,
+                        repo_type="dataset",
+                        token=HF_TOKEN,
+                        commit_message=f"HuggingClaw sync {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+                        ignore_patterns=[".git/*", ".git"],
+                    )
+                break  # success
+            except Exception as _upload_exc:
+                if _upload_attempts >= 3:
+                    raise
+                _backoff = 15 * _upload_attempts
+                print(f"Warning: upload attempt {_upload_attempts} failed ({_upload_exc}); retrying in {_backoff}s...")
+                time.sleep(_backoff)
         try:
             prune_remote_deleted_files(repo_id, snapshot_dir)
         except Exception as prune_exc:
