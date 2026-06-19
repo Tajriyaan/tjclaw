@@ -865,7 +865,9 @@ openclaw config set tools.web.search.enabled true 2>/dev/null || true
 if [ -n "${BRAVE_API_KEY:-}" ]; then
   openclaw config set tools.web.search.provider brave 2>/dev/null || true
 else
-  openclaw config unset tools.web.search.provider 2>/dev/null || true
+  # Must explicitly set parallel-free — unset causes OpenAI-compatible
+  # routes (OpenRouter) to use native OpenAI search which is unavailable
+  openclaw config set tools.web.search.provider parallel-free 2>/dev/null || true
 fi
 # Set agent system instructions to always use web_search tool directly
 # This prevents context bloat and browser fallback which causes bot detection
@@ -877,7 +879,7 @@ openclaw config set agents.defaults.instructions "You are Taj's personal AI assi
   if [ -n "${BRAVE_API_KEY:-}" ]; then
     openclaw config set tools.web.search.provider brave 2>/dev/null || true
   else
-    openclaw config unset tools.web.search.provider 2>/dev/null || true
+    openclaw config set tools.web.search.provider parallel-free 2>/dev/null || true
   fi
   openclaw config set agents.defaults.instructions "You are Taj's personal AI assistant based in Fredericton, New Brunswick, Canada. When searching the web, ALWAYS use the web_search tool directly. NEVER use the browser tool for web searches. Keep responses concise and well formatted for Telegram. When asked about events or news, search immediately without asking clarifying questions." 2>/dev/null || true
   echo "Web search config re-applied after gateway boot."
