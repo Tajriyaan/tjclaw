@@ -78,11 +78,26 @@ if (PROXY_URL) {
         normalized.endsWith(".hf.space") ||
         normalized.endsWith(".huggingface.co") ||
         normalized === "huggingface.co" ||
-        // FIX: never proxy private/RFC-1918 addresses
+        // Never proxy RFC-1918 private addresses
         /^10\./.test(normalized) ||
         /^172\.(1[6-9]|2[0-9]|3[01])\./.test(normalized) ||
         /^192\.168\./.test(normalized) ||
-        /^169\.254\./.test(normalized);
+        /^169\.254\./.test(normalized) ||
+        // Never proxy AI provider APIs — proxying these causes undici
+        // dispatcher conflicts and breaks OpenClaw's LLM calls entirely
+        normalized === "openrouter.ai" ||
+        normalized.endsWith(".openrouter.ai") ||
+        normalized === "api.openai.com" ||
+        normalized === "api.anthropic.com" ||
+        normalized === "generativelanguage.googleapis.com" ||
+        normalized === "api.groq.com" ||
+        normalized === "api.mistral.ai" ||
+        normalized === "api.deepseek.com" ||
+        normalized === "api.together.xyz" ||
+        normalized === "api.cohere.com" ||
+        normalized === "api.x.ai" ||
+        normalized === "api.cerebras.ai" ||
+        normalized === "integrate.api.nvidia.com";
 
       const should = PROXY_ALL ? !isInternal : BLOCKED_DOMAINS.some(
         (domain) =>
