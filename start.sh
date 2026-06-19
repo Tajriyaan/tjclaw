@@ -649,7 +649,7 @@ if [ "$BROWSER_SHOULD_ENABLE" = "true" ]; then BROWSER_DISABLED=false; fi
 CONFIG_JSON=$(jq \
   --argjson allow "$PLUGIN_ALLOW_JSON" \
   --argjson browserDisabled "$BROWSER_DISABLED" \
-  '.plugins.allow = $allow
+  '.plugins.allow = ($allow + ["group:web"])
    | .plugins.deny = ["lmstudio","xai"]
    | .plugins.entries.lmstudio.enabled = false
    | .plugins.entries.xai.enabled = false
@@ -882,29 +882,19 @@ openclaw config set agents.defaults.instructions "You are Taj's personal AI assi
     openclaw config set tools.web.search.provider parallel-free 2>/dev/null || true
   fi
   openclaw config set agents.defaults.instructions "You are Taj's personal AI assistant based in Fredericton, New Brunswick, Canada. When searching the web, ALWAYS use the web_search tool directly. NEVER use the browser tool for web searches. Keep responses concise and well formatted for Telegram. When asked about events or news, search immediately without asking clarifying questions." 2>/dev/null || true
-  # Patch openclaw.json directly and clean up stale plugin entries
+  # Also patch openclaw.json directly so gateway picks it up on reload
   python3 -c "
-import json, os
+import json
 f = "/home/node/.openclaw/openclaw.json"
 try:
     with open(f) as h: c = json.load(h)
-    # Enable web search with correct provider
     c.setdefault("tools", {}).setdefault("web", {}).setdefault("search", {})["enabled"] = True
-    if "BRAVE_API_KEY" in os.environ:
+    if "BRAVE_API_KEY" in __import__("os").environ:
         c["tools"]["web"]["search"]["provider"] = "brave"
     else:
         c["tools"]["web"]["search"]["provider"] = "parallel-free"
-    # Remove stale plugin allow entries that cause warnings
-    stale = {"group:web", "web_search", "web_fetch", "brave"}
-    if "plugins" in c and "allow" in c["plugins"]:
-        c["plugins"]["allow"] = [x for x in c["plugins"]["allow"] if x not in stale]
-    # Remove stale plugin entries
-    if "plugins" in c and "entries" in c["plugins"]:
-        for k in list(c["plugins"]["entries"].keys()):
-            if k == "brave" and "BRAVE_API_KEY" not in os.environ:
-                del c["plugins"]["entries"][k]
     with open(f, "w") as h: json.dump(c, h, indent=2)
-    print("openclaw.json patched: web search=parallel-free, stale entries cleaned")
+    print("openclaw.json patched: web search enabled with parallel-free")
 except Exception as e: print("patch failed:", e)
 " 2>/dev/null || true
   echo "Web search config re-applied after gateway boot."
