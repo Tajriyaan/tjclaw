@@ -882,6 +882,21 @@ openclaw config set agents.defaults.instructions "You are Taj's personal AI assi
     openclaw config set tools.web.search.provider parallel-free 2>/dev/null || true
   fi
   openclaw config set agents.defaults.instructions "You are Taj's personal AI assistant based in Fredericton, New Brunswick, Canada. When searching the web, ALWAYS use the web_search tool directly. NEVER use the browser tool for web searches. Keep responses concise and well formatted for Telegram. When asked about events or news, search immediately without asking clarifying questions." 2>/dev/null || true
+  # Also patch openclaw.json directly so gateway picks it up on reload
+  python3 -c "
+import json
+f = "/home/node/.openclaw/openclaw.json"
+try:
+    with open(f) as h: c = json.load(h)
+    c.setdefault("tools", {}).setdefault("web", {}).setdefault("search", {})["enabled"] = True
+    if "BRAVE_API_KEY" in __import__("os").environ:
+        c["tools"]["web"]["search"]["provider"] = "brave"
+    else:
+        c["tools"]["web"]["search"]["provider"] = "parallel-free"
+    with open(f, "w") as h: json.dump(c, h, indent=2)
+    print("openclaw.json patched: web search enabled with parallel-free")
+except Exception as e: print("patch failed:", e)
+" 2>/dev/null || true
   echo "Web search config re-applied after gateway boot."
 ) &
 
