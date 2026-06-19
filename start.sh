@@ -862,6 +862,27 @@ chmod 600 "$EXISTING_CONFIG"
 openclaw config set tools.web.search.enabled true 2>/dev/null || true
 openclaw config set tools.web.search.provider duckduckgo 2>/dev/null || true
 
+# ── Set up daily morning briefing cron job ──
+# Recreated on every boot so it survives container restarts.
+# Deletes any existing job with same name first to avoid duplicates.
+openclaw cron list --json 2>/dev/null | python3 -c "
+import json,sys,subprocess
+try:
+    jobs = json.load(sys.stdin)
+    for j in (jobs if isinstance(jobs,list) else []):
+        if j.get("name","") == "morning-briefing":
+            subprocess.run(["openclaw","cron","rm",j["id"]], capture_output=True)
+            print("Removed old morning-briefing cron")
+except: pass
+" 2>/dev/null || true
+openclaw cron add \
+  --name "morning-briefing" \
+  --schedule "0 12 * * *" \
+  --tz "America/Moncton" \
+  --channel telegram \
+  --message "Search the web for the top 5 social events in Fredericton NB Canada this week and the top 3 AI and tech news stories today. For each event include name, date, time, location, description and link. Format nicely with emojis. Start with: 🌅 Good morning Taj!" \
+  2>/dev/null || true
+
 # ── Enable Gateway Preload Fixes ──
 # This preload script keeps iframe embedding working on HF Spaces.
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--require /home/node/app/iframe-fix.cjs --require /home/node/app/multi-provider-key-rotator.cjs"
