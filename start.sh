@@ -627,6 +627,8 @@ fi
 #          current OpenClaw releases and prevents gateway start. Disabling
 #          the plugin does NOT affect xai-as-a-model-provider.
 PLUGIN_ALLOW_JSON='["device-pair","phone-control","talk-voice"]'
+# Always allow web search tools
+PLUGIN_ALLOW_JSON=$(jq '. + ["brave","parallel","duckduckgo","exa","tavily","perplexity","firecrawl"]' <<<"$PLUGIN_ALLOW_JSON")
 if [ "$ACP_PLUGIN_MODE" = "enabled" ] || [ "$ACP_PLUGIN_MODE" = "auto" ]; then
   PLUGIN_ALLOW_JSON=$(jq '. + ["acpx"]' <<<"$PLUGIN_ALLOW_JSON")
 fi
@@ -647,7 +649,7 @@ if [ "$BROWSER_SHOULD_ENABLE" = "true" ]; then BROWSER_DISABLED=false; fi
 CONFIG_JSON=$(jq \
   --argjson allow "$PLUGIN_ALLOW_JSON" \
   --argjson browserDisabled "$BROWSER_DISABLED" \
-  '.plugins.allow = $allow
+  '.plugins.allow = ($allow + ["group:web"])
    | .plugins.deny = ["lmstudio","xai"]
    | .plugins.entries.lmstudio.enabled = false
    | .plugins.entries.xai.enabled = false
