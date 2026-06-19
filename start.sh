@@ -883,7 +883,7 @@ openclaw cron add \
   --announce \
   --channel telegram \
   --to "8621517934" \
-  --message "Search the web for the top 5 social events in Fredericton NB Canada this week and the top 3 AI and tech news stories today. For each event include name, date, time, location, description and link. Format nicely with emojis. Start with: 🌅 Good morning Taj!" \
+  --message "Search the web for the top 5 social events in Fredericton NB Canada this week and the top 3 AI news stories today. For each include name, date, time, location, description and link. Also include top 3 AI news with summary and link. Format with emojis. Start with: 🌅 Good morning Taj! End with: Have a great day! 🦞" \
   2>/dev/null || true
 
 # ── Enable Gateway Preload Fixes ──
