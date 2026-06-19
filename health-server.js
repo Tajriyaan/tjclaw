@@ -36,10 +36,6 @@ const JUPYTER_ENABLED =
   );
 const startTime = Date.now();
 const LLM_MODEL = process.env.LLM_MODEL || "Not Set";
-// FIX: strip openrouter/ prefix if present (e.g. openrouter/nvidia/model → nvidia/model)
-if (LLM_MODEL.startsWith("openrouter/") && LLM_MODEL.split("/").length >= 3) {
-  LLM_MODEL = LLM_MODEL.slice("openrouter/".length);
-}
 const LLM_PROVIDER = LLM_MODEL.includes("/") ? LLM_MODEL.split("/")[0] : "";
 const TELEGRAM_WEBHOOK_URL = (process.env.TELEGRAM_WEBHOOK_URL || "").trim();
 const TELEGRAM_ENABLED = !!process.env.TELEGRAM_BOT_TOKEN;

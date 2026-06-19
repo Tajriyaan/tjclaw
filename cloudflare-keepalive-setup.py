@@ -46,6 +46,44 @@ def slugify(value: str) -> str:
     return (cleaned or "huggingclaw-proxy")[:63].rstrip("-")
 
 
+def cf_upload_worker(account_id: str, worker_name: str, token: str, script_source: str) -> None:
+    """Upload a Worker script using multipart/form-data as required by the CF API."""
+    boundary = "----HuggingClawBoundary"
+    metadata = json.dumps({
+        "main_module": "worker.js",
+        "bindings": [],
+        "compatibility_date": "2024-01-01",
+        "usage_model": "bundled",
+    })
+    body_parts = []
+    body_parts.append(f"--{boundary}\r\n".encode())
+    body_parts.append(b'Content-Disposition: form-data; name="metadata"\r\n')
+    body_parts.append(b'Content-Type: application/json\r\n\r\n')
+    body_parts.append(metadata.encode("utf-8"))
+    body_parts.append(b"\r\n")
+    body_parts.append(f"--{boundary}\r\n".encode())
+    body_parts.append(b'Content-Disposition: form-data; name="worker.js"; filename="worker.js"\r\n')
+    body_parts.append(b'Content-Type: application/javascript\r\n\r\n')
+    body_parts.append(script_source.encode("utf-8"))
+    body_parts.append(b"\r\n")
+    body_parts.append(f"--{boundary}--\r\n".encode())
+    body = b"".join(body_parts)
+    req = urllib.request.Request(
+        f"{API_BASE}/accounts/{account_id}/workers/scripts/{worker_name}",
+        data=body,
+        method="PUT",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=60) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    if not payload.get("success"):
+        errors = payload.get("errors") or [{"message": "Unknown Cloudflare API error"}]
+        raise RuntimeError(errors[0].get("message", "Unknown Cloudflare API error"))
+
+
 def get_space_host() -> str:
     space_host = os.environ.get("SPACE_HOST", "").strip()
     if space_host:
@@ -168,13 +206,7 @@ def setup_keepalive_worker(api_token: str, account_id: str, subdomain: str) -> N
     worker_name = derive_keepalive_worker_name()
     worker_source = render_keepalive_worker(target_url)
 
-    cf_request(
-        "PUT",
-        f"/accounts/{account_id}/workers/scripts/{worker_name}",
-        api_token,
-        body=worker_source.encode("utf-8"),
-        content_type="application/javascript",
-    )
+    cf_upload_worker(account_id, worker_name, api_token, worker_source)
     cf_request(
         "POST",
         f"/accounts/{account_id}/workers/scripts/{worker_name}/subdomain",

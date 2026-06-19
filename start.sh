@@ -181,17 +181,6 @@ if [[ "$LLM_MODEL" == "anthropic/gemini"* ]]; then
   echo "Note: corrected model from anthropic/gemini* to google/gemini*"
 fi
 
-# FIX: openrouter/nvidia/model-name has 3 segments; strip the 'openrouter/' prefix so
-# OpenClaw sees nvidia/model-name and OPENROUTER_API_KEY is set correctly.
-if [[ "$LLM_MODEL" == openrouter/* ]]; then
-  _or_rest="${LLM_MODEL#openrouter/}"
-  if [[ "$_or_rest" == */* ]]; then
-    echo "Note: auto-stripping 'openrouter/' prefix ('$LLM_MODEL' → '$_or_rest'). Tip: set LLM_MODEL=$_or_rest + LLM_PROVIDER=openrouter to avoid this."
-    LLM_MODEL="$_or_rest"
-    export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-$LLM_API_KEY}"
-  fi
-fi
-
 # Extract provider prefix from model name (e.g. "google/gemini-2.5-flash" → "google")
 LLM_PROVIDER=$(echo "$LLM_MODEL" | cut -d'/' -f1)
 
