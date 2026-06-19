@@ -877,9 +877,12 @@ except: pass
 " 2>/dev/null || true
 openclaw cron add \
   --name "morning-briefing" \
-  --schedule "0 12 * * *" \
+  --cron "0 12 * * *" \
   --tz "America/Moncton" \
+  --session isolated \
+  --announce \
   --channel telegram \
+  --to "8621517934" \
   --message "Search the web for the top 5 social events in Fredericton NB Canada this week and the top 3 AI and tech news stories today. For each event include name, date, time, location, description and link. Format nicely with emojis. Start with: 🌅 Good morning Taj!" \
   2>/dev/null || true
 
