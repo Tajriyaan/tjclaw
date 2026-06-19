@@ -860,7 +860,13 @@ chmod 600 "$EXISTING_CONFIG"
 # Baked in so it persists across container restarts without relying on
 # workspace/startup.sh which runs AFTER the gateway starts.
 openclaw config set tools.web.search.enabled true 2>/dev/null || true
-openclaw config set tools.web.search.provider duckduckgo 2>/dev/null || true
+# Use Brave if key is set, otherwise fall back to auto-detection (Parallel Free)
+if [ -n "${BRAVE_API_KEY:-}" ]; then
+  openclaw config set tools.web.search.provider brave 2>/dev/null || true
+else
+  # Remove provider pin so OpenClaw auto-selects Parallel Search (Free) — no key needed
+  openclaw config unset tools.web.search.provider 2>/dev/null || true
+fi
 
 # ── Set up daily morning briefing cron job ──
 # Recreated on every boot so it survives container restarts.
