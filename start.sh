@@ -856,6 +856,12 @@ else
 fi
 chmod 600 "$EXISTING_CONFIG"
 
+# ── Enable web search (DuckDuckGo, no API key needed) ──
+# Baked in so it persists across container restarts without relying on
+# workspace/startup.sh which runs AFTER the gateway starts.
+openclaw config set tools.web.search.enabled true 2>/dev/null || true
+openclaw config set tools.web.search.provider duckduckgo 2>/dev/null || true
+
 # ── Enable Gateway Preload Fixes ──
 # This preload script keeps iframe embedding working on HF Spaces.
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--require /home/node/app/iframe-fix.cjs --require /home/node/app/multi-provider-key-rotator.cjs"
