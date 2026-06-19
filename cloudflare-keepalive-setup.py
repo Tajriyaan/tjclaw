@@ -108,14 +108,7 @@ def derive_keepalive_worker_name() -> str:
 
 
 def render_keepalive_worker(target_url: str) -> str:
-    return f"""addEventListener("fetch", (event) => {{
-  event.respondWith(handleRequest(event.request));
-}});
-
-addEventListener("scheduled", (event) => {{
-  event.waitUntil(ping("cron"));
-}});
-
+    return f"""// HuggingClaw Cloudflare KeepAlive Worker (ES Module)
 const TARGET_URL = {json.dumps(target_url)};
 
 async function ping(source) {{
@@ -159,6 +152,15 @@ async function handleRequest(request) {{
   }}
   return new Response("Not found", {{ status: 404 }});
 }}
+
+export default {{
+  async fetch(request, env, ctx) {{
+    return handleRequest(request);
+  }},
+  async scheduled(event, env, ctx) {{
+    ctx.waitUntil(ping("cron"));
+  }}
+}};
 """
 
 

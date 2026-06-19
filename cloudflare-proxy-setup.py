@@ -138,10 +138,7 @@ def render_worker(secret_value: str, allowed_targets: list[str], allow_proxy_all
     allowed_json = json.dumps(allowed_targets)
     allow_all_js = "true" if allow_proxy_all else "false"
     secret_json = json.dumps(secret_value)
-    return f"""addEventListener("fetch", (event) => {{
-  event.respondWith(handleRequest(event.request));
-}});
-
+    return f"""// HuggingClaw Cloudflare Proxy Worker (ES Module)
 const PROXY_SHARED_SECRET = {secret_json};
 const ALLOW_PROXY_ALL = {allow_all_js};
 const ALLOWED_TARGETS = {allowed_json};
@@ -150,7 +147,6 @@ function isAllowedHost(hostname) {{
   const normalized = String(hostname || "").trim().toLowerCase();
   if (!normalized) return false;
   if (ALLOW_PROXY_ALL) return true;
-  // FIX: never proxy private/RFC-1918 ranges
   if (/^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.|127\\.|localhost$)/.test(normalized)) return false;
   return ALLOWED_TARGETS.some(
     (domain) => normalized === domain || normalized.endsWith(`.${{domain}}`),
@@ -213,6 +209,12 @@ async function handleRequest(request) {{
     return new Response(`Proxy Error: ${{error.message}}`, {{ status: 502 }});
   }}
 }}
+
+export default {{
+  async fetch(request, env, ctx) {{
+    return handleRequest(request);
+  }}
+}};
 """
 
 
