@@ -859,6 +859,8 @@ chmod 600 "$EXISTING_CONFIG"
 # ── Enable Gateway Preload Fixes ──
 # This preload script keeps iframe embedding working on HF Spaces.
 export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--require /home/node/app/iframe-fix.cjs --require /home/node/app/multi-provider-key-rotator.cjs"
+# NOTE: cloudflare-proxy.js intentionally NOT preloaded — it patches undici globally
+# and conflicts with OpenClaw's own fetch/undici usage for AI provider calls.
 
 # ── Startup Summary ──
 echo ""

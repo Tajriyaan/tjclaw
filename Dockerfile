@@ -113,7 +113,7 @@ ENV HOME=/home/node \
     OPENCLAW_VERSION=${OPENCLAW_VERSION} \
     PATH=/home/node/.local/bin:/usr/local/bin:$PATH \
     NODE_PATH=/home/node/browser-deps/node_modules \
-    NODE_OPTIONS="--max-old-space-size=1536 --require /opt/cloudflare-proxy.js"
+    NODE_OPTIONS="--max-old-space-size=1536"
 
 WORKDIR /home/node/app
 
