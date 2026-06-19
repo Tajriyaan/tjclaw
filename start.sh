@@ -865,6 +865,9 @@ if [ -n "${BRAVE_API_KEY:-}" ]; then
 else
   openclaw config unset tools.web.search.provider 2>/dev/null || true
 fi
+# Set agent system instructions to always use web_search tool directly
+# This prevents context bloat and browser fallback which causes bot detection
+openclaw config set agents.defaults.instructions "You are Taj's personal AI assistant based in Fredericton, New Brunswick, Canada. When searching the web, ALWAYS use the web_search tool directly. NEVER use the browser tool for web searches. Keep responses concise and well formatted for Telegram. When asked about events or news, search immediately without asking clarifying questions." 2>/dev/null || true
 # Re-apply after gateway starts (gateway overwrites config on boot)
 (
   sleep 30
@@ -874,6 +877,7 @@ fi
   else
     openclaw config unset tools.web.search.provider 2>/dev/null || true
   fi
+  openclaw config set agents.defaults.instructions "You are Taj's personal AI assistant based in Fredericton, New Brunswick, Canada. When searching the web, ALWAYS use the web_search tool directly. NEVER use the browser tool for web searches. Keep responses concise and well formatted for Telegram. When asked about events or news, search immediately without asking clarifying questions." 2>/dev/null || true
   echo "Web search config re-applied after gateway boot."
 ) &
 
